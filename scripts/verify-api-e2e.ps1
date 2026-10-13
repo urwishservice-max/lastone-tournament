@@ -1,9 +1,11 @@
 # ==============================================================================
 # LastZone End-to-End API and Game Score Flow Verification
 # ==============================================================================
-$ErrorActionPreference = "Stop"
+param (
+    [int]$port = 8081
+)
 
-$port = 8081
+$ErrorActionPreference = "Stop"
 $baseUri = "http://localhost:$port"
 
 Write-Host "Verifying Health Check at $baseUri/api/health..." -ForegroundColor Cyan

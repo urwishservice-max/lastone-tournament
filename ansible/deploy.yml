@@ -1,0 +1,73 @@
+---
+# ==============================================================================
+# LastZone Ansible Automated Deployment Playbook
+# Provisions Docker host environment, configures directories, and launches fleet
+# ==============================================================================
+- name: Deploy LastZone Production Fleet
+  hosts: lastzone_servers
+  become: true
+  vars:
+    app_dir: "/opt/lastzone"
+    docker_packages:
+      - docker.io
+      - docker-compose-plugin
+      - curl
+      - git
+
+  tasks:
+    - name: Update apt cache (Debian/Ubuntu)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install prerequisite packages and Docker engine
+      package:
+        name: "{{ docker_packages }}"
+        state: present
+
+    - name: Ensure Docker service is running and enabled
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Ensure target application deployment directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy project code and configuration to target host
+      synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ app_dir }}"
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=node_modules"
+          - "--exclude=backend/target"
+          - "--exclude=backend/.mvn-bin"
+          - "--exclude=dist"
+
+    - name: Build and launch Docker Compose services
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_dir }}"
+        state: present
+        build: always
+        recreate: auto
+      register: compose_output
+
+    - name: Verify health endpoint of LastZone backend
+      uri:
+        url: "http://localhost/api/health"
+        method: GET
+        status_code: 200
+        return_content: yes
+      register: health_check
+      retries: 15
+      delay: 5
+      until: health_check.status == 200
+
+    - name: Display deployment success confirmation
+      debug:
+        msg: "LastZone successfully deployed! Healthcheck response: {{ health_check.content }}"

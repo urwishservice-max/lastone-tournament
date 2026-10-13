@@ -1,0 +1,78 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL Database with Persistent Storage
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: lastzone-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lastzone}
+      POSTGRES_USER: ${POSTGRES_USER:-lastzone_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lastzone_admin} -d ${POSTGRES_DB:-lastzone}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lastzone-net
+
+  # ============================================================================
+  # 2. Spring Boot 3.3.5 Backend (Java 21 + JPA + Flyway + JJWT)
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lastzone-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-lastzone}
+      DB_USERNAME: ${POSTGRES_USER:-lastzone_admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_vanguard_jwt_signing_key_sector07_minimum_256_bits_length_117}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      SERVER_PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lastzone-net
+
+  # ============================================================================
+  # 3. React + Vite Frontend (Nginx 1.27 + WebGL Optimizations + Reverse Proxy)
+  # ============================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lastzone-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - lastzone-net
+
+volumes:
+  postgres_data:
+    name: lastzone_postgres_data
+
+networks:
+  lastzone-net:
+    driver: bridge

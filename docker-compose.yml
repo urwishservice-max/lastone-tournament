@@ -10,8 +10,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-lastzone}
       POSTGRES_USER: ${POSTGRES_USER:-lastzone_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
+    # Bind strictly to local loopback (127.0.0.1) so DB is never exposed to public network
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -34,12 +35,16 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-lastzone}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-lastzone_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-lastzone}
       DB_USERNAME: ${POSTGRES_USER:-lastzone_admin}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
+      PORT: 8080
+      SERVER_PORT: 8080
       JWT_SECRET: ${JWT_SECRET:-super_secret_vanguard_jwt_signing_key_sector07_minimum_256_bits_length_117}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      SERVER_PORT: 8080
     depends_on:
       postgres:
         condition: service_healthy

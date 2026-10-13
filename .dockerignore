@@ -1,0 +1,16 @@
+# Docker build ignore rules
+node_modules/
+dist/
+build/
+.git/
+.gitignore
+.gitattributes
+backend/target/
+backend/.mvn-bin/
+backend/data/*.mv.db
+backend/data/backups/
+*.log
+unity_build.log
+.env*
+.vscode/
+.idea/

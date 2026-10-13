@@ -1,0 +1,8 @@
+# Backend Docker build ignore rules
+target/
+.mvn-bin/
+data/*.mv.db
+data/backups/
+*.log
+.idea/
+*.iml

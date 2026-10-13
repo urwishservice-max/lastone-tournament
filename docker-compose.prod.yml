@@ -1,0 +1,115 @@
+services:
+  # ============================================================================
+  # 1. PostgreSQL Database with Persistent Storage
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: lastzone-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lastzone}
+      POSTGRES_USER: ${POSTGRES_USER:-lastzone_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
+    # Bind strictly to local loopback so DB is NEVER exposed publicly
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - lastzone_pg_data:/var/lib/postgresql/data
+      - ./backend/data/backups:/backups:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lastzone_admin} -d ${POSTGRES_DB:-lastzone}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lastzone-prod-net
+
+  # ============================================================================
+  # 2. Spring Boot Backend (Java 21 + JPA + Flyway)
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lastzone-backend
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-lastzone}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-lastzone_admin}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-secure_vanguard_secret_117}
+      PORT: 8080
+      SERVER_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-super_secret_vanguard_jwt_signing_key_sector07_minimum_256_bits_length_117}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    networks:
+      - lastzone-prod-net
+
+  # ============================================================================
+  # 3. React + Unity WebGL Frontend (Nginx 1.27)
+  # ============================================================================
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lastzone-frontend
+    restart: always
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:80/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - lastzone-prod-net
+
+  # ============================================================================
+  # 4. Caddy Automatic HTTPS Reverse Proxy (Zero-Config SSL via Let's Encrypt)
+  # ============================================================================
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: lastzone-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@lastzone.local}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    networks:
+      - lastzone-prod-net
+
+volumes:
+  lastzone_pg_data:
+    name: lastzone_pg_data
+  caddy_data:
+    name: lastzone_caddy_data
+  caddy_config:
+    name: lastzone_caddy_config
+
+networks:
+  lastzone-prod-net:
+    driver: bridge

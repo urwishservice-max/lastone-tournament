@@ -1,0 +1,30 @@
+# ==============================================================================
+# LastZone Production Caddyfile - Automatic HTTPS Reverse Proxy
+# ==============================================================================
+{
+    email ${ACME_EMAIL:-admin@lastzone.tournament}
+}
+
+# Domain-specific block with Automatic HTTPS (Let's Encrypt / ZeroSSL)
+{$DOMAIN:lastzone.duckdns.org} {
+    reverse_proxy frontend:80 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Security Headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    encode gzip zstd
+}
+
+# Fallback HTTP port 80 for direct IP access
+:80 {
+    reverse_proxy frontend:80
+}

@@ -21,6 +21,8 @@ pipeline {
         POSTGRES_DB = 'lastzone'
         POSTGRES_USER = 'lastzone_admin'
         FRONTEND_PORT = '80'
+        PATH = "C:\\ProgramData\\maven\\bin;C:\\Program Files\\nodejs;C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.8-hotspot\\bin;${env.PATH}"
+        JAVA_HOME = "C:\\Program Files\\Eclipse Adoptium\\jdk-21.0.12.8-hotspot"
     }
 
     stages {
@@ -51,10 +53,16 @@ pipeline {
             }
         }
 
-        stage('Checkout') {
+        stage('Source Verification') {
             steps {
-                echo 'Checking out source repository main branch from GitHub...'
-                checkout scm
+                echo 'Verifying source repository commit and structure...'
+                script {
+                    if (isUnix()) {
+                        sh 'git log -1 --oneline'
+                    } else {
+                        bat 'git.exe log -1 --oneline'
+                    }
+                }
             }
         }
 

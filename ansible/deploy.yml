@@ -10,7 +10,7 @@
     app_dir: "/opt/lastzone"
     docker_packages:
       - docker.io
-      - docker-compose-plugin
+      - docker-compose-v2
       - curl
       - git
 
@@ -31,6 +31,7 @@
         name: docker
         state: started
         enabled: yes
+      when: not ansible_check_mode and ansible_service_mgr == "systemd"
 
     - name: Ensure target application deployment directory exists
       file:
